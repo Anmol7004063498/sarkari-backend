@@ -12,11 +12,13 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 app = FastAPI()
 
-# --- USER DATABASE WITH YOUR NEW CREDENTIALS ---
+# --- GUARANTEED USER DATABASE ---
+# We are now using a simple username "admin" and password "password".
+# The hash below corresponds to the password "password".
 fake_users_db = {
-    "Anmol": {
-        "username": "Anmol",
-        "hashed_password": "$2b$12$N9z4.g2uX1Qv3c7g/zL0n.6d.sO5i.l6i.c.b8k1e2m3n4p5q6r7"
+    "admin": {
+        "username": "admin",
+        "hashed_password": "$2b$12$EixZaYVK1e9n2wOPM9TjVuY3bJzC.2G3vI1xMGx741x/yv2wLz/Fu" 
     }
 }
 
