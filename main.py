@@ -13,8 +13,6 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 app = FastAPI()
 
 # --- USER DATABASE WITH YOUR NEW CREDENTIALS ---
-# We have replaced "admin" with your new username "Anmol"
-# and replaced the old hashed password with the new one for "Anmol@7870".
 fake_users_db = {
     "Anmol": {
         "username": "Anmol",
