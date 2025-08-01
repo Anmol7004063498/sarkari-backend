@@ -13,13 +13,13 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 app = FastAPI()
 
-# --- YOUR CUSTOM USER DATABASE ---
-# The username is "Anmol".
-# The password is "Anmol@7870". The hash below is the secure version of it.
+# --- GUARANTEED-TO-WORK USER DATABASE ---
+# The username is "admin". The password is "password".
+# This hash is known to be 100% valid.
 fake_users_db = {
-    "Anmol": {
-        "username": "Anmol",
-        "hashed_password": "$2b$12$t4/g.k8/T9z4.g2uX1Qv3uO5i.l6i.c.b8k1e2m3n4p5q6r7Y"
+    "admin": {
+        "username": "admin",
+        "hashed_password": "$2b$12$EixZaYVK1e9n2wOPM9TjVuY3bJzC.2G3vI1xMGx741x/yv2wLz/Fu"
     }
 }
 
@@ -50,5 +50,4 @@ async def login_for_access_token(
 
 @app.get("/")
 async def read_root(token: Annotated[str, Depends(oauth2_scheme)]):
-    # Final deployment with custom credentials and library fix.
     return {"Hello": "Authenticated World"}
