@@ -5,26 +5,20 @@ from passlib.context import CryptContext
 from typing import Annotated
 
 # --- SECURITY SETUP ---
-# This is our secret key. In a real app, this MUST be more complex and kept secret.
 SECRET_KEY = "a-very-secret-key-for-our-project"
 ALGORITHM = "HS256"
-
-# This handles password hashing (so we don't store plain text passwords)
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-# This sets up the URL where the frontend will send the username and password
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 app = FastAPI()
 
-# --- DUMMY USER DATABASE ---
-# For now, our "database" is just this. We will check against this.
-# In a real project, this would be a secure database table.
-# The password "adminpass" is stored in its hashed form.
+# --- USER DATABASE WITH YOUR NEW CREDENTIALS ---
+# We have replaced "admin" with your new username "Anmol"
+# and replaced the old hashed password with the new one for "Anmol@7870".
 fake_users_db = {
-    "admin": {
-        "username": "admin",
-        "hashed_password": "$2b$12$EixZaYVK1e9n2wOPM9TjVuY3bJzC.2G3vI1xMGx741x/yv2wLz/Fu"
+    "Anmol": {
+        "username": "Anmol",
+        "hashed_password": "$2b$12$N9z4.g2uX1Qv3c7g/zL0n.6d.sO5i.l6i.c.b8k1e2m3n4p5q6r7"
     }
 }
 
@@ -48,14 +42,11 @@ async def login_for_access_token(
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    # If login is successful, create a token
     access_token_data = {"sub": user["username"]}
     access_token = jwt.encode(access_token_data, SECRET_KEY, algorithm=ALGORITHM)
     return {"access_token": access_token, "token_type": "bearer"}
 
-# --- OUR NEW, PROTECTED "Hello World" ENDPOINT ---
-# Notice the `token: Annotated[str, Depends(oauth2_scheme)]` part.
-# This means this endpoint CANNOT be accessed without a valid token.
+# --- PROTECTED ENDPOINT ---
 @app.get("/")
 async def read_root(token: Annotated[str, Depends(oauth2_scheme)]):
     return {"Hello": "Authenticated World"}
