@@ -46,7 +46,6 @@ manager = ConnectionManager()
 
 # --- API ENDPOINTS ---
 
-# LOGIN ENDPOINT
 @app.post("/token")
 async def login_for_access_token(
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()]
@@ -61,19 +60,17 @@ async def login_for_access_token(
     access_token = jwt.encode(access_token_data, SECRET_KEY, algorithm=ALGORITHM)
     return {"access_token": access_token, "token_type": "bearer"}
 
-# WEBSOCKET ENDPOINT
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await manager.connect(websocket)
     try:
         while True:
             data = await websocket.receive_text()
-            await manager.broadcast(f"Message received from client: {data}")
+            await manager.broadcast(f"Message from client: {data}")
     except WebSocketDisconnect:
         manager.disconnect(websocket)
         await manager.broadcast("A client has disconnected.")
 
-# PROTECTED ROOT ENDPOINT
 @app.get("/")
 async def read_root(token: Annotated[str, Depends(oauth2_scheme)]):
     return {"Hello": "Authenticated Admin"}
