@@ -1,5 +1,6 @@
 from fastapi import Depends, FastAPI, HTTPException, status, WebSocket, WebSocketDisconnect
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi.security import OAuth2PasswordBearer
+from fastapi.security.oauth2 import OAuth2PasswordRequestForm
 from jose import jwt
 from typing import Annotated, List
 from fastapi.middleware.cors import CORSMiddleware
