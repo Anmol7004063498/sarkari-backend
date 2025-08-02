@@ -1,47 +1,35 @@
-from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi import Depends, FastAPI, HTTPException, status, WebSocket, WebSocketDisconnect
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import jwt
-from typing import Annotated
-from fastapi.middleware.cors import CORSMiddleware # Import the CORS middleware
+from typing import Annotated, List
+from fastapi.middleware.cors import CORSMiddleware
 
-# --- SECURITY SETUP (Simplified) ---
+# --- SETUP (Same as before) ---
 SECRET_KEY = "a-very-secret-key-for-our-project"
 ALGORITHM = "HS256"
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
-
 app = FastAPI()
 
-# --- CORS MIDDLEWARE SETUP ---
-# This is the new section that fixes the browser error.
-# It tells our backend to trust our frontend.
-origins = [
-    "http://localhost:3000", # The address of our local React app
-    # In the future, we will add our live frontend URL here too.
-]
-
+# --- CORS MIDDLEWARE (Same as before) ---
+origins = ["http://localhost:3000"]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["*"], # Allow all methods (GET, POST, etc.)
-    allow_headers=["*"], # Allow all headers
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
-# --- SIMPLIFIED USER DATABASE ---
+# --- FAKE DATABASE & HELPERS (Same as before) ---
 fake_users_db = {
-    "admin": {
-        "username": "admin",
-        "password": "password"
-    }
+    "admin": {"username": "admin", "password": "password"}
 }
-
-# --- HELPER FUNCTION (Simplified) ---
 def get_user(db, username: str):
     if username in db:
         return db[username]
     return None
 
-# --- API ENDPOINTS ---
+# --- LOGIN ENDPOINT (Same as before) ---
 @app.post("/token")
 async def login_for_access_token(
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()]
@@ -51,12 +39,47 @@ async def login_for_access_token(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
-            headers={"WWW-Authenticate": "Bearer"},
         )
     access_token_data = {"sub": user["username"]}
     access_token = jwt.encode(access_token_data, SECRET_KEY, algorithm=ALGORITHM)
     return {"access_token": access_token, "token_type": "bearer"}
 
+# --- NEW: WEBSOCKET CONNECTION MANAGER ---
+# This class will manage all active connections from our apps and admin panels.
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: List[WebSocket] = []
+
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections.append(websocket)
+
+    def disconnect(self, websocket: WebSocket):
+        self.active_connections.remove(websocket)
+
+    async def broadcast(self, message: str):
+        for connection in self.active_connections:
+            await connection.send_text(message)
+
+manager = ConnectionManager()
+
+# --- NEW: WEBSOCKET ENDPOINT ---
+# This is the special URL the Android app and admin panel will connect to.
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await manager.connect(websocket)
+    try:
+        while True:
+            # We wait to receive messages from a client
+            data = await websocket.receive_text()
+            # When we get a message, we broadcast it to ALL other clients.
+            # This is how the app will send data to the admin panel.
+            await manager.broadcast(f"Message received: {data}")
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
+        await manager.broadcast("A client has disconnected.")
+
+# --- PROTECTED ENDPOINT (Same as before) ---
 @app.get("/")
 async def read_root(token: Annotated[str, Depends(oauth2_scheme)]):
     return {"Hello": "Authenticated World"}
