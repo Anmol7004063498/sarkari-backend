@@ -4,13 +4,13 @@ from jose import jwt
 from typing import Annotated, List
 from fastapi.middleware.cors import CORSMiddleware
 
-# --- SETUP (Same as before) ---
+# --- SETUP ---
 SECRET_KEY = "a-very-secret-key-for-our-project"
 ALGORITHM = "HS256"
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 app = FastAPI()
 
-# --- CORS MIDDLEWARE (Same as before) ---
+# --- CORS MIDDLEWARE ---
 origins = ["http://localhost:3000"]
 app.add_middleware(
     CORSMiddleware,
@@ -20,7 +20,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- FAKE DATABASE & HELPERS (Same as before) ---
+# --- FAKE DATABASE & HELPERS ---
 fake_users_db = {
     "admin": {"username": "admin", "password": "password"}
 }
@@ -29,7 +29,7 @@ def get_user(db, username: str):
         return db[username]
     return None
 
-# --- LOGIN ENDPOINT (Same as before) ---
+# --- LOGIN ENDPOINT ---
 @app.post("/token")
 async def login_for_access_token(
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()]
@@ -44,8 +44,7 @@ async def login_for_access_token(
     access_token = jwt.encode(access_token_data, SECRET_KEY, algorithm=ALGORITHM)
     return {"access_token": access_token, "token_type": "bearer"}
 
-# --- NEW: WEBSOCKET CONNECTION MANAGER ---
-# This class will manage all active connections from our apps and admin panels.
+# --- WEBSOCKET CONNECTION MANAGER ---
 class ConnectionManager:
     def __init__(self):
         self.active_connections: List[WebSocket] = []
@@ -63,23 +62,19 @@ class ConnectionManager:
 
 manager = ConnectionManager()
 
-# --- NEW: WEBSOCKET ENDPOINT ---
-# This is the special URL the Android app and admin panel will connect to.
+# --- WEBSOCKET ENDPOINT ---
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await manager.connect(websocket)
     try:
         while True:
-            # We wait to receive messages from a client
             data = await websocket.receive_text()
-            # When we get a message, we broadcast it to ALL other clients.
-            # This is how the app will send data to the admin panel.
             await manager.broadcast(f"Message received: {data}")
     except WebSocketDisconnect:
         manager.disconnect(websocket)
         await manager.broadcast("A client has disconnected.")
 
-# --- PROTECTED ENDPOINT (Same as before) ---
+# --- PROTECTED ENDPOINT ---
 @app.get("/")
 async def read_root(token: Annotated[str, Depends(oauth2_scheme)]):
     return {"Hello": "Authenticated World"}
