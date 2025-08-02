@@ -1,6 +1,5 @@
 from fastapi import Depends, FastAPI, HTTPException, status, WebSocket, WebSocketDisconnect
-from fastapi.security import OAuth2PasswordBearer
-from fastapi.security.oauth2 import OAuth2PasswordRequestForm
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import jwt
 from typing import Annotated, List
 from fastapi.middleware.cors import CORSMiddleware
@@ -30,7 +29,24 @@ def get_user(db, username: str):
         return db[username]
     return None
 
-# --- LOGIN ENDPOINT ---
+# --- WEBSOCKET CONNECTION MANAGER ---
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: List[WebSocket] = []
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections.append(websocket)
+    def disconnect(self, websocket: WebSocket):
+        self.active_connections.remove(websocket)
+    async def broadcast(self, message: str):
+        for connection in self.active_connections:
+            await connection.send_text(message)
+
+manager = ConnectionManager()
+
+# --- API ENDPOINTS ---
+
+# LOGIN ENDPOINT
 @app.post("/token")
 async def login_for_access_token(
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()]
@@ -45,37 +61,19 @@ async def login_for_access_token(
     access_token = jwt.encode(access_token_data, SECRET_KEY, algorithm=ALGORITHM)
     return {"access_token": access_token, "token_type": "bearer"}
 
-# --- WEBSOCKET CONNECTION MANAGER ---
-class ConnectionManager:
-    def __init__(self):
-        self.active_connections: List[WebSocket] = []
-
-    async def connect(self, websocket: WebSocket):
-        await websocket.accept()
-        self.active_connections.append(websocket)
-
-    def disconnect(self, websocket: WebSocket):
-        self.active_connections.remove(websocket)
-
-    async def broadcast(self, message: str):
-        for connection in self.active_connections:
-            await connection.send_text(message)
-
-manager = ConnectionManager()
-
-# --- WEBSOCKET ENDPOINT ---
+# WEBSOCKET ENDPOINT
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await manager.connect(websocket)
     try:
         while True:
             data = await websocket.receive_text()
-            await manager.broadcast(f"Message received: {data}")
+            await manager.broadcast(f"Message received from client: {data}")
     except WebSocketDisconnect:
         manager.disconnect(websocket)
         await manager.broadcast("A client has disconnected.")
 
-# --- PROTECTED ENDPOINT ---
+# PROTECTED ROOT ENDPOINT
 @app.get("/")
 async def read_root(token: Annotated[str, Depends(oauth2_scheme)]):
-    return {"Hello": "Authenticated World"}
+    return {"Hello": "Authenticated Admin"}
