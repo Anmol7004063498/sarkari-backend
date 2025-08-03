@@ -4,10 +4,34 @@ from jose import jwt
 from typing import Annotated, List
 from fastapi.middleware.cors import CORSMiddleware
 
-# --- Create the App First ---
+# --- SETUP ---
 app = FastAPI()
 
-# --- WEBSOCKET CONNECTION MANAGER (We know this part works) ---
+# --- CORS MIDDLEWARE ---
+# We allow all origins ("*") to ensure it works with any hosting platform URL
+origins = ["*"]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# --- SECURITY & DATABASE ---
+SECRET_KEY = "a-very-secret-key-for-our-project"
+ALGORITHM = "HS256"
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+
+fake_users_db = {
+    "admin": {"username": "admin", "password": "password"}
+}
+def get_user(db, username: str):
+    if username in db:
+        return db[username]
+    return None
+
+# --- WEBSOCKET CONNECTION MANAGER ---
 class ConnectionManager:
     def __init__(self):
         self.active_connections: List[WebSocket] = []
@@ -22,39 +46,7 @@ class ConnectionManager:
 
 manager = ConnectionManager()
 
-# --- WEBSOCKET ENDPOINT (We know this part works) ---
-@app.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket):
-    await manager.connect(websocket)
-    try:
-        while True:
-            data = await websocket.receive_text()
-            await manager.broadcast(f"Message from client: {data}")
-    except WebSocketDisconnect:
-        manager.disconnect(websocket)
-        await manager.broadcast("A client has disconnected.")
-
-# --- NOW, LET'S ADD THE LOGIN LOGIC ---
-SECRET_KEY = "a-very-secret-key-for-our-project"
-ALGORITHM = "HS256"
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
-
-origins = ["http://localhost:3000", "http://localhost:3001"] # Allow multiple for safety
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-fake_users_db = {
-    "admin": {"username": "admin", "password": "password"}
-}
-def get_user(db, username: str):
-    if username in db:
-        return db[username]
-    return None
+# --- API ENDPOINTS ---
 
 @app.post("/token")
 async def login_for_access_token(
@@ -70,6 +62,17 @@ async def login_for_access_token(
     access_token = jwt.encode(access_token_data, SECRET_KEY, algorithm=ALGORITHM)
     return {"access_token": access_token, "token_type": "bearer"}
 
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await manager.connect(websocket)
+    try:
+        while True:
+            data = await websocket.receive_text()
+            await manager.broadcast(f"Message from client: {data}")
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
+        await manager.broadcast("A client has disconnected.")
+
 @app.get("/")
-async def read_root(token: Annotated[str, Depends(oauth2_scheme)]):
-    return {"Hello": "Authenticated Admin"}
+async def read_root():
+    return {"Hello": "Welcome to the Fleek Server!"}
